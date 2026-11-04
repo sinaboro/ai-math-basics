@@ -1,7 +1,7 @@
 // 서비스 워커: 앱 파일을 폰에 저장해 두고 인터넷 없이도 실행되게 한다.
 // 앱 내용(레슨 등)을 고치면 VERSION 숫자를 올려야 폰에서 새 버전을 받는다.
-const VERSION = 'ai-math-v2';
-const FILES = ['./', 'index.html', 'app.js', 'lessons.js', 'manifest.json',
+const VERSION = 'ai-math-v3';
+const FILES = ['./', 'index.html', 'app.js', 'lessons.js', 'manifest.json', 'install-helper.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 // 설치할 때 파일을 모두 캐시에 담는다 (브라우저 임시 저장본은 건너뛰고 새로 받음)
