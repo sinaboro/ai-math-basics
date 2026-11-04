@@ -86,11 +86,12 @@ function renderCourse(c) {
       <p style="font-size:13px">${doneCount(c)} / ${c.lessons.length} 레슨 완료</p></div>
     ${c.lessons.map((l, i) => `<button class="les ${isDone(c, l) ? 'done' : ''}" data-l="${l.id}">
       <span class="n">${isDone(c, l) ? '✓' : i + 1}</span><span class="t">${l.title}<br><span class="s">${isDone(c, l) ? '완료 · 다시 보기' : `퀴즈 ${l.quiz.length}문제`}</span></span><span>›</span></button>`).join('')}
-    <div class="links">
+    ${c.pdf ? `<div class="links">
       <a href="${REPO}/blob/main/${encodeURI(c.pdf)}" target="_blank" rel="noopener">📄 교안 PDF 보기</a>
       <a href="${REPO}/tree/main/${encodeURI(c.code)}" target="_blank" rel="noopener">💻 실습 코드 (파이썬)</a>
     </div>
-    <p class="muted" style="font-size:12.5px;margin:0">교안·실습 코드는 인터넷이 연결되어 있을 때 GitHub에서 열려요.</p>
+    <p class="muted" style="font-size:12.5px;margin:0">교안·실습 코드는 인터넷이 연결되어 있을 때 GitHub에서 열려요.</p>`
+    : '<p class="muted" style="font-size:13px;margin:0">이 코스는 앞의 세 코스를 마친 뒤 딥러닝으로 넘어가기 위한 보충 코스예요.</p>'}
   </div>`;
   view.querySelectorAll('[data-l]').forEach(b => b.onclick = () => go(`#/c/${c.id}/${b.dataset.l}`));
 }
@@ -167,7 +168,7 @@ function renderHelp() {
   const sec = (t, b) => `<div class="card help"><h3>${t}</h3>${b}</div>`;
   view.innerHTML = `<div class="stack">
     ${sec('📚 이렇게 공부해요', `<ol>
-      <li><b>학습</b> 탭에서 코스를 고릅니다. <b>기초 수학 → 경사하강법 → 오차역전파</b> 순서를 추천해요.</li>
+      <li><b>학습</b> 탭에서 코스를 고릅니다. <b>기초 수학 → 경사하강법 → 오차역전파 → 딥러닝 준비 수학</b> 순서를 추천해요.</li>
       <li>레슨을 읽으며 <b>🖐 직접 해 보기</b> 상자의 슬라이더·버튼을 움직여 보세요. 눈으로 보면 훨씬 쉬워요.</li>
       <li>맨 아래 <b>📝 확인 퀴즈</b>를 모두 맞히면 레슨이 <b>완료</b>되고 진도에 기록됩니다.</li>
       <li>홈의 <b>▶ 이어서 학습하기</b>를 누르면 아직 안 끝낸 레슨으로 바로 가요.</li></ol>`)}
@@ -589,6 +590,174 @@ const WIDGETS = {
       const nw = w - lr * c.dw, nb = b - lr * c.db;
       toast(`w: ${fmt(w, 3)} → ${fmt(nw, 3)},  b: ${fmt(b, 3)} → ${fmt(nb, 3)}`);
       w = nw; b = nb; st = 9; draw();
+    };
+    draw();
+  },
+
+  // eˣ 와 ln x 를 함께 (y = x 를 기준으로 거울 모양)
+  explog(el) {
+    let x = 1;
+    const p = plot(el, 250, { x0: -2, x1: 4, y0: -3, y1: 8, sx: 1, sy: 2 });
+    const out = div(el, 'out');
+    const draw = () => {
+      p.clear();
+      p.fn(t => t, css('--axis'), 1.5, [5, 5]);
+      p.fn(Math.exp, css('--accent'), 3);
+      p.fn(t => t > 0 ? Math.log(t) : NaN, css('--bw'), 3);
+      if (p.inside(x, Math.exp(x))) p.dot(x, Math.exp(x), css('--accent'), 6, 'eˣ');
+      if (x > 0 && p.inside(x, Math.log(x))) p.dot(x, Math.log(x), css('--bw'), 6, 'ln x');
+      out.innerHTML = `<span style="color:var(--accent)">── eˣ</span> : e<sup>${fmt(x)}</sup> = <b>${fmt(Math.exp(x), 3)}</b> (항상 양수)<br>
+        <span style="color:var(--bw)">── ln x</span> : ${x > 0 ? `ln ${fmt(x)} = <b>${fmt(Math.log(x), 3)}</b>${Math.abs(x - 1) < 1e-9 ? ' ← ln 1 = 0' : ''}` : 'x ≤ 0 에서는 정의되지 않아요'}`;
+    };
+    slider(el, 'x', -2, 3, 0.1, x, v => { x = v; draw(); });
+    draw();
+  },
+
+  // 크로스 엔트로피 벌점 −ln p
+  logloss(el) {
+    let pr = 0.9;
+    const p = plot(el, 200, { x0: 0, x1: 1, y0: 0, y1: 5, sx: 0.2, sy: 1, xl: '정답 확률 p', yl: '벌점 −ln p' });
+    const out = div(el, 'out');
+    const draw = () => {
+      p.clear();
+      p.fn(t => t > 0 ? -Math.log(t) : NaN, css('--bw'), 3);
+      p.dot(pr, -Math.log(pr), css('--accent'), 7);
+      const v = -Math.log(pr);
+      out.innerHTML = `모델이 정답일 확률을 <b>${fmt(pr)}</b>로 예측 → 벌점 −ln ${fmt(pr)} = <b>${fmt(v, 3)}</b> ${pr >= 0.9 ? '😊 확신하고 맞힘' : pr <= 0.2 ? '😱 크게 틀림' : ''}`;
+    };
+    slider(el, 'p', 0.01, 1, 0.01, pr, v => { pr = v; draw(); });
+    draw();
+  },
+
+  // 내적: 같은 자리끼리 곱해 모두 더하기
+  dot(el) {
+    const x = [3, 1, 2], w = [2, -1, 0.5]; let b = 1;
+    const t = document.createElement('table'); t.className = 'lt'; el.appendChild(t);
+    const out = div(el, 'out');
+    const pm = (k, i, v) => `<span class="pm"><button data-k="${k}" data-i="${i}" data-d="-">−</button><b>${fmt(v)}</b><button data-k="${k}" data-i="${i}" data-d="+">+</button></span>`;
+    const draw = () => {
+      const pr = x.map((v, i) => v * w[i]), s = pr.reduce((a, v) => a + v, 0);
+      t.innerHTML = `<thead><tr><th></th><th>x₁</th><th>x₂</th><th>x₃</th></tr></thead><tbody>
+        <tr><td><b>입력 x</b></td>${x.map((v, i) => `<td>${pm('x', i, v)}</td>`).join('')}</tr>
+        <tr><td><b>가중치 w</b></td>${w.map((v, i) => `<td>${pm('w', i, v)}</td>`).join('')}</tr>
+        <tr><td><b>곱 wᵢxᵢ</b></td>${pr.map(v => `<td><b style="color:var(--accent)">${fmt(v)}</b></td>`).join('')}</tr></tbody>`;
+      out.innerHTML = `w·x = ${pr.map(v => fmt(v)).join(' + ').replace(/\+ −/g, '− ')} = <b>${fmt(s)}</b><br>ŷ = w·x + b = ${fmt(s)} + ${fmt(b)} = <b>${fmt(s + b)}</b>`;
+    };
+    t.onclick = e => {
+      const btn = e.target.closest('[data-k]'); if (!btn) return;
+      const arr = btn.dataset.k === 'x' ? x : w, step = btn.dataset.k === 'x' ? 1 : 0.5, i = +btn.dataset.i;
+      arr[i] = Math.max(-9, Math.min(9, arr[i] + (btn.dataset.d === '+' ? step : -step))); draw();
+    };
+    draw();
+  },
+
+  // 행렬 × 벡터: 각 행과 내적
+  matvec(el) {
+    const W = [[1, 2], [3, 4]], x = [5, 6];
+    let r = 0;
+    const box = div(el, 'chain'), out = div(el, 'out');
+    const btns = div(el, 'btns', '<button class="pri" data-a="next">다음 행 ▶</button><button data-a="r">처음부터</button>');
+    const draw = () => {
+      const res = W.map(row => row[0] * x[0] + row[1] * x[1]);
+      box.innerHTML = `<span class="bx" style="text-align:left">${W.map((row, i) => `<div style="${i === r - 1 ? 'background:var(--accent-soft);border-radius:6px;font-weight:700' : ''}">[ ${row.join(', ')} ]</div>`).join('')}</span>
+        <span class="op">×</span><span class="bx">${x.map(v => `<div>${v}</div>`).join('')}</span><span class="op">=</span>
+        <span class="bx">${res.map((v, i) => `<div>${i < r ? `<b>${v}</b>` : '?'}</div>`).join('')}</span>`;
+      out.innerHTML = r === 0 ? '<b>[다음 행 ▶]</b>을 눌러 행마다 내적해 보세요.'
+        : `${r}번째 행: ${W[r - 1][0]}×${x[0]} + ${W[r - 1][1]}×${x[1]} = <b>${res[r - 1]}</b>` + (r === W.length ? `<br>✅ W·x = [${res.join(', ')}] — 뉴런 2개의 출력이 한 번에 나왔어요` : '');
+    };
+    btns.onclick = e => { const a = e.target.dataset.a; if (a === 'next') r = Math.min(W.length, r + 1); else if (a === 'r') r = 0; draw(); };
+    draw();
+  },
+
+  // 활성화 함수: 시그모이드 / ReLU 와 그 미분
+  activation(el) {
+    let kind = 'sig', x = 0;
+    const sg = t => 1 / (1 + Math.exp(-t));
+    const K = {
+      sig: { f: sg, d: t => sg(t) * (1 - sg(t)), r: { x0: -6, x1: 6, y0: -0.2, y1: 1.2, sx: 2, sy: 0.25 }, name: 'σ(x)', dname: 'σ′(x) = σ(1−σ)' },
+      relu: { f: t => Math.max(0, t), d: t => t > 0 ? 1 : 0, r: { x0: -3, x1: 3, y0: -0.5, y1: 3, sx: 1, sy: 0.5 }, name: 'ReLU(x)', dname: '미분 (0 또는 1)' },
+    };
+    const seg = div(el, 'seg', '<button data-k="sig">시그모이드</button><button data-k="relu">ReLU</button>');
+    const holder = div(el, '');
+    const out = div(el, 'out');
+    let p, sl;
+    const build = () => {
+      holder.innerHTML = ''; p = plot(holder, 220, K[kind].r);
+      if (sl) sl.parentElement.remove();
+      const r = K[kind].r; x = Math.max(r.x0, Math.min(r.x1, x));
+      sl = slider(el, 'x', r.x0, r.x1, 0.1, x, v => { x = v; draw(); });
+      el.appendChild(out);
+    };
+    const draw = () => {
+      const k = K[kind];
+      seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.k === kind));
+      p.clear(); p.fn(k.d, css('--bw'), 2, [6, 5]); p.fn(k.f, css('--accent'), 3);
+      p.dot(x, k.f(x), css('--accent'), 6);
+      const fv = k.f(x), dv = k.d(x);
+      out.innerHTML = `<span style="color:var(--accent)">── ${k.name}</span> = <b>${fmt(fv, 3)}</b> &nbsp; <span style="color:var(--bw)">- - ${k.dname}</span> = <b>${fmt(dv, 3)}</b><br>` +
+        (kind === 'sig'
+          ? (Math.abs(x) >= 4 ? '⚠️ 양 끝에서는 기울기가 거의 0 → 역전파로 전달할 기울기가 사라져요 (기울기 소실)' : Math.abs(x) < 0.05 ? 'x = 0 에서 기울기가 가장 커요 (0.25)' : '값은 항상 0 ~ 1 사이예요')
+          : (x < 0 ? '음수 → 출력 0, 기울기 0 (역전파를 막음)' : x > 0 ? '양수 → 그대로 통과, 기울기 1' : 'x = 0 은 꺾이는 점이에요'));
+    };
+    seg.onclick = e => { const b = e.target.closest('[data-k]'); if (!b) return; kind = b.dataset.k; build(); draw(); };
+    build(); draw();
+  },
+
+  // 등고선 지도 위 그래디언트 하강 (L = (w − 2)² + 4(b − 1)²)
+  contour(el) {
+    const L = (w, b) => (w - 2) ** 2 + 4 * (b - 1) ** 2;
+    const G = (w, b) => [2 * (w - 2), 8 * (b - 1)];
+    const LRS = [0.05, 0.1, 0.2, 0.26];
+    let lr = 0.1, start = [-0.5, 2.6], pt = start.slice(), path = [start.slice()];
+    const seg = div(el, 'seg', '학습률 lr: ' + LRS.map(v => `<button data-lr="${v}">${v}</button>`).join(''));
+    const p = plot(el, 260, { x0: -1, x1: 5, y0: -1, y1: 3, sx: 1, sy: 1, xl: 'w', yl: 'b' });
+    const cv = el.querySelector('canvas');
+    const out = div(el, 'out');
+    const btns = div(el, 'btns', '<button class="pri" data-a="1">한 걸음 ▶</button><button data-a="10">10걸음</button><button data-a="r">처음으로</button>');
+    const draw = () => {
+      seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.lr === lr));
+      p.clear();
+      const c = p.ctx, pxW = p.X(1) - p.X(0), pxB = p.Y(0) - p.Y(1);
+      c.save(); c.beginPath(); c.rect(26, 0, p.W - 26, p.H - 20); c.clip();
+      [0.25, 1, 2, 4, 8, 16, 32].forEach((lv, i) => {                  // 등고선: 같은 손실끼리
+        c.strokeStyle = css('--accent'); c.globalAlpha = 0.25 + i * 0.08; c.lineWidth = 1.3;
+        c.beginPath(); c.ellipse(p.X(2), p.Y(1), Math.sqrt(lv) * pxW, Math.sqrt(lv) / 2 * pxB, 0, 0, 7); c.stroke();
+      });
+      c.globalAlpha = 1;
+      c.strokeStyle = css('--fg'); c.lineWidth = 1.6; c.beginPath();       // 지나온 길
+      path.forEach(([w, b], i) => i ? c.lineTo(p.X(w), p.Y(b)) : c.moveTo(p.X(w), p.Y(b))); c.stroke();
+      path.forEach(([w, b]) => p.dot(w, b, css('--muted'), 2.5));
+      p.dot(2, 1, css('--ok'), 5, '바닥');
+      const [gw, gb] = G(...pt), n = Math.hypot(gw, gb);
+      if (n > 1e-6 && p.inside(...pt)) {                                 // −∇L 화살표
+        const len = 0.8, ex = pt[0] - gw / n * len, ey = pt[1] - gb / n * len;
+        c.strokeStyle = css('--err'); c.fillStyle = css('--err'); c.lineWidth = 2.6;
+        c.beginPath(); c.moveTo(p.X(pt[0]), p.Y(pt[1])); c.lineTo(p.X(ex), p.Y(ey)); c.stroke();
+        const ang = Math.atan2(p.Y(ey) - p.Y(pt[1]), p.X(ex) - p.X(pt[0]));
+        c.beginPath(); c.moveTo(p.X(ex), p.Y(ey));
+        c.lineTo(p.X(ex) - 9 * Math.cos(ang - 0.4), p.Y(ey) - 9 * Math.sin(ang - 0.4));
+        c.lineTo(p.X(ex) - 9 * Math.cos(ang + 0.4), p.Y(ey) - 9 * Math.sin(ang + 0.4)); c.fill();
+      }
+      if (p.inside(...pt)) p.dot(pt[0], pt[1], css('--accent'), 6);
+      c.restore();
+      const far = Math.hypot(pt[0] - 2, pt[1] - 1) > 6;
+      out.innerHTML = `걸음 <b>${path.length - 1}</b> · (w, b) = (<b>${fmt(pt[0], 3)}</b>, <b>${fmt(pt[1], 3)}</b>) · L = <b>${fmt(L(...pt), 3)}</b>
+        <br>∇L = (2(w−2), 8(b−1)) = (${fmt(gw, 2)}, ${fmt(gb, 2)}) → <span style="color:var(--err)">빨간 화살표 = −∇L</span>
+        ${far ? '<br>💥 <b>발산!</b> b 방향으로 너무 크게 튀어요. 학습률을 줄여 보세요.' : n < 0.01 ? '<br>✅ 바닥 (2, 1) 도착! ∇L ≈ (0, 0)' : path.length === 1 ? '<br><small>지도를 눌러 출발점을 바꿀 수 있어요</small>' : ''}`;
+    };
+    const reset = () => { pt = start.slice(); path = [start.slice()]; draw(); };
+    cv.addEventListener('click', e => {                                    // 누른 곳을 출발점으로
+      const rc = cv.getBoundingClientRect(), sx = (e.clientX - rc.left), sy = (e.clientY - rc.top);
+      const w = -1 + (sx - 26) / (p.W - 34) * 6, b = -1 + (p.H - 20 - sy) / (p.H - 30) * 4;
+      if (w < -1 || w > 5 || b < -1 || b > 3) return;
+      start = [+w.toFixed(2), +b.toFixed(2)]; reset();
+    });
+    seg.onclick = e => { const b = e.target.closest('[data-lr]'); if (!b) return; lr = +b.dataset.lr; reset(); };
+    btns.onclick = e => {
+      const a = e.target.dataset.a; if (!a) return;
+      if (a === 'r') return reset();
+      for (let k = 0; k < +a && Math.hypot(pt[0], pt[1]) < 1e6; k++) { const [gw, gb] = G(...pt); pt = [pt[0] - lr * gw, pt[1] - lr * gb]; path.push(pt.slice()); }
+      draw();
     };
     draw();
   },
