@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AI 수학 첫걸음</title>
+<meta name="description" content="수학 초보자를 위한 AI 기초 수학·경사하강법·오차역전파 학습 앱. 그래프를 직접 움직이며 배우고 퀴즈로 확인해요.">
+<meta name="theme-color" content="#2f3e9e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AI수학">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  /* 화면 구성: 위 제목줄, 가운데 내용(홈·코스·레슨·용어·사용법), 아래 탭 3개 */
+  :root{
+    --bg:#f5f6fb; --surface:#ffffff; --fg:#1b2033; --muted:#5d6479; --line:#dde1ee;
+    --accent:#2f3e9e; --accent-soft:#e6e9f8; --on-accent:#fff;
+    --ok:#1f8a55; --ok-soft:#e1f4e9; --err:#c0392b; --err-soft:#fbe6e3;
+    --sun:#f2b632; --sun-soft:#fff4d9; --fw:#13844f; --bw:#c2410c;
+    --grid:#e9ecf5; --axis:#9aa2b8;
+    --math:"Cambria Math","STIX Two Math","Times New Roman","Noto Serif",serif;
+    --tabbar:62px;
+  }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+    --bg:#11131c; --surface:#1a1d29; --fg:#e6e8f2; --muted:#9aa1b6; --line:#2b2f40;
+    --accent:#8c9bff; --accent-soft:#232a4d; --on-accent:#0d1030;
+    --ok:#4fc489; --ok-soft:#153024; --err:#ff8a7a; --err-soft:#3a1f1a;
+    --sun:#e0a94a; --sun-soft:#33291a; --fw:#4fc489; --bw:#ff9a5c;
+    --grid:#242838; --axis:#5c6378; color-scheme:dark } }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font:15.5px/1.7 "Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;-webkit-tap-highlight-color:transparent;word-break:keep-all;overflow-wrap:anywhere}
+  button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+  a{color:var(--accent)}
+
+  .top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px;display:flex;align-items:center;gap:8px}
+  .top h1{flex:1;min-width:0;margin:0;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .back{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:18px;flex:none}
+  .inst{display:flex;align-items:center;gap:8px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px;padding:8px 8px 8px 12px;font-size:13.5px;line-height:1.4;margin:10px 12px 0}
+  .inst .msg{flex:1;min-width:0}
+  .inst .go{flex:none;border:0;background:var(--accent);color:var(--on-accent);border-radius:999px;padding:7px 14px;font-weight:700;font-size:13.5px}
+  .inst .x{flex:none;width:30px;height:30px;border:0;border-radius:50%;background:none;color:var(--muted)}
+
+  main{max-width:720px;margin:0 auto;padding:14px 14px calc(var(--tabbar) + 28px + env(safe-area-inset-bottom,0px))}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px}
+  .muted{color:var(--muted)}
+  .stack{display:flex;flex-direction:column;gap:12px}
+
+  /* 홈 */
+  .hero{background:linear-gradient(135deg,var(--accent),#5b3fb8);color:#fff;border-radius:18px;padding:20px 18px}
+  .hero h2{margin:0 0 4px;font-size:22px}
+  .hero p{margin:0;opacity:.92;font-size:14px}
+  .hero .bar{background:rgba(255,255,255,.25)}
+  .hero .bar i{background:#fff}
+  .hero .cont{margin-top:14px;border:0;background:#fff;color:#2f3e9e;border-radius:12px;padding:11px 14px;font-weight:800;width:100%}
+  .bar{height:7px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;background:var(--ok);border-radius:4px;transition:width .3s}
+  .course{display:flex;gap:14px;align-items:center;text-align:left;width:100%;border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:14px}
+  .course .em{flex:none;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:26px}
+  .course .ct{flex:1;min-width:0}
+  .course b,.course .d,.course .pct,.course .bar{display:block}
+  .course b{font-size:16.5px}
+  .course .d{font-size:13px;color:var(--muted);line-height:1.5;margin-top:2px}
+  .course .pct{font-size:12px;color:var(--muted);margin-top:4px}
+
+  /* 코스 화면 */
+  .chead{border-radius:16px;padding:16px;color:#fff}
+  .chead h2{margin:0;font-size:20px}
+  .chead p{margin:6px 0 0;font-size:14px;opacity:.95}
+  .les{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:12px 14px}
+  .les .n{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;background:var(--accent-soft);color:var(--accent)}
+  .les.done .n{background:var(--ok);color:#fff}
+  .les .t{flex:1;font-weight:600}
+  .les .s{font-size:12px;color:var(--muted)}
+  .links{display:flex;gap:8px;flex-wrap:wrap}
+  .links a{flex:1;min-width:140px;text-align:center;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px;text-decoration:none;color:var(--fg);font-size:14px;font-weight:600}
+
+  /* 레슨 본문 */
+  .lhead .k{font-size:12.5px;font-weight:700}
+  .lhead h2{margin:2px 0 0;font-size:21px;line-height:1.4}
+  .dots{display:flex;gap:4px;margin-top:10px}
+  .dots i{flex:1;height:4px;border-radius:2px;background:var(--line)}
+  .dots i.on{background:var(--accent)}
+  .dots i.ok{background:var(--ok)}
+  .body h3{font-size:16.5px;margin:22px 0 6px}
+  .body p{margin:8px 0}
+  .body ul,.body ol{margin:8px 0;padding-left:22px}
+  .body li+li{margin-top:4px}
+  .c{text-align:center}
+  .big{font-size:1.15em}
+  .m{font-family:var(--math);font-size:1.08em;white-space:nowrap}
+  .big.m,.big .m{font-size:1.25em}
+  .fr{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;font-size:.85em;line-height:1.25;margin:0 2px}
+  .fr>span:first-child{border-bottom:1.2px solid currentColor;padding:0 3px}
+  .sg{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1;margin:0 2px;font-family:var(--math)}
+  .sg b{font-size:1.6em;font-weight:400}
+  .sg small{font-size:.62em}
+  .ex{background:var(--sun-soft);border-left:4px solid var(--sun);border-radius:10px;padding:10px 12px;margin:12px 0;line-height:1.8}
+  .rule{background:var(--accent-soft);border-radius:10px;padding:10px 12px;margin:10px 0;line-height:1.8}
+  .rule small{color:var(--muted)}
+  .tip{background:var(--surface);border:1px dashed var(--accent);border-radius:10px;padding:10px 12px;margin:14px 0;font-size:14.5px}
+  .tb{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px;background:var(--surface);border-radius:10px;overflow:hidden}
+  .tb th,.tb td{border:1px solid var(--line);padding:7px 8px;text-align:center;vertical-align:middle}
+  .tb th{background:var(--accent-soft);font-weight:700}
+  .steps li{margin:6px 0}
+  pre.code{background:#1e2235;color:#e6e8f2;border-radius:12px;padding:12px;font:12.5px/1.6 Consolas,"D2Coding",monospace;overflow-x:auto;white-space:pre;margin:14px 0}
+  pre.code::before{content:"🐍 파이썬";display:block;color:#8c9bff;font-family:inherit;font-size:11px;margin-bottom:4px}
+  .sumbox{background:var(--ok-soft);border-radius:14px;padding:12px 14px}
+  .sumbox h3{margin:0 0 4px;font-size:15.5px;color:var(--ok)}
+  .sumbox ul{margin:0;padding-left:20px}
+
+  /* 체험 위젯 */
+  .w{background:var(--surface);border:1.5px solid var(--accent);border-radius:14px;padding:12px;margin:14px 0}
+  .w::before{content:"🖐 직접 해 보기";display:block;font-size:12.5px;font-weight:800;color:var(--accent);margin-bottom:6px}
+  .w canvas{display:block;width:100%;border-radius:8px;touch-action:pan-y}
+  .w .ctl{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:14px}
+  .w .ctl label{width:64px;flex:none;font-weight:700}
+  .w .ctl input[type=range]{flex:1;height:30px;accent-color:var(--accent)}
+  .w .ctl output{width:52px;text-align:right;font-family:var(--math);font-weight:700}
+  .w .out{margin-top:8px;font-size:14.5px;line-height:1.7;background:var(--bg);border-radius:10px;padding:8px 10px}
+  .w .btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .w .btns button{flex:1;min-width:84px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-weight:700;font-size:14px}
+  .w .btns button.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .w .seg{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;align-items:center;font-size:13.5px}
+  .w .seg button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:4px 11px;font-size:13px}
+  .w .seg button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+  .cells{display:flex;gap:6px;justify-content:center;margin:6px 0}
+  .cells span{width:46px;text-align:center;border:1.5px solid var(--line);border-radius:10px;padding:4px 0;font-family:var(--math);font-size:17px;background:var(--bg)}
+  .cells span small{display:block;font-size:11px;color:var(--muted);font-family:inherit}
+  .cells span.on{border-color:var(--accent);background:var(--accent-soft)}
+  .cells span.used{opacity:.45}
+  .chain{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;margin:6px 0;font-family:var(--math)}
+  .chain .bx{border:1.5px solid var(--line);border-radius:10px;padding:4px 10px;text-align:center;min-width:56px;background:var(--bg);font-size:17px}
+  .chain .bx small{display:block;font-size:11px;color:var(--muted)}
+  .chain .op{font-size:13px;color:var(--accent);font-weight:700;font-family:inherit}
+  .chain .d{color:var(--ok);font-size:12.5px;font-weight:700;display:block}
+  .lt{width:100%;border-collapse:collapse;font-size:13.5px}
+  .lt th,.lt td{border-bottom:1px solid var(--line);padding:5px 4px;text-align:center}
+  .lt .pm{display:inline-flex;align-items:center;gap:3px}
+  .lt .pm button{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:var(--bg);padding:0;font-size:14px;line-height:1}
+  .lt tfoot td{font-weight:700;border-bottom:0}
+  .gsvg{width:100%;height:auto;display:block}
+  .gsvg .nd{fill:var(--surface);stroke:var(--fg);stroke-width:1.5}
+  .gsvg .ed{stroke:var(--axis);stroke-width:1.6;fill:none}
+  .gsvg text{font-family:var(--math);fill:var(--fg)}
+  .gsvg .fw{fill:var(--fw);font-weight:700}
+  .gsvg .bw{fill:var(--bw);font-weight:700}
+  .ins{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+  .ins span{display:inline-flex;align-items:center;gap:4px;font-family:var(--math);font-size:16px}
+  .ins button{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--bg);padding:0}
+  .nt td:first-child{text-align:left;font-family:var(--math)}
+  .nt .fwv{color:var(--fw);font-weight:700}
+  .nt .bwv{color:var(--bw);font-weight:700;font-size:12.5px}
+  .nt tr.hl{background:var(--accent-soft)}
+
+  /* 퀴즈 */
+  .quiz h3{margin:0 0 8px;font-size:16.5px}
+  .qq{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+  .qq:first-of-type{border-top:0;margin-top:0}
+  .qq p{margin:0 0 8px;font-weight:700}
+  .qo{display:flex;flex-direction:column;gap:6px}
+  .qo button{text-align:left;border:1.5px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 12px;font-size:15px}
+  .qo button.right{border-color:var(--ok);background:var(--ok-soft)}
+  .qo button.wrong{border-color:var(--err);background:var(--err-soft)}
+  .qo button:disabled{cursor:default;color:inherit}
+  .qe{margin-top:8px;font-size:14px;border-radius:10px;padding:8px 10px}
+  .qe.ok{background:var(--ok-soft)}
+  .qe.no{background:var(--err-soft)}
+  .qres{margin-top:12px;text-align:center;font-weight:800;font-size:16px}
+  .nav2{display:flex;gap:8px}
+  .nav2 button{flex:1;height:50px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:15px}
+  .nav2 button.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .btnw{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 14px;font-weight:700}
+
+  /* 용어 · 사용법 */
+  .search{width:100%;height:46px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font:16px inherit;padding:0 14px}
+  .gl{border-bottom:1px solid var(--line);padding:10px 2px}
+  .gl b{display:block}
+  .gl span{font-size:14px;color:var(--muted)}
+  .help h3{margin:0 0 6px;font-size:16px;color:var(--accent)}
+  .help ul,.help ol{margin:0;padding-left:20px;font-size:14.5px}
+  .help li+li{margin-top:4px}
+
+  .tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .tabs a{height:var(--tabbar);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:12px;font-weight:700;color:var(--muted);text-decoration:none}
+  .tabs a span{font-size:20px;line-height:1.1}
+  .tabs a.on{color:var(--accent)}
+  .toast{position:fixed;left:50%;bottom:calc(var(--tabbar) + 16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;z-index:9;max-width:90%;text-align:center}
+</style>
+</head>
+<body>
+<header class="top">
+  <button class="back" id="back" aria-label="뒤로" hidden>←</button>
+  <h1 id="title">AI 수학 첫걸음</h1>
+</header>
+<div class="inst" id="inst" hidden><span class="msg" id="instMsg"></span><button class="go" id="instGo">설치</button><button class="x" id="instX" aria-label="닫기">✕</button></div>
+<main id="view">
+  <!-- 스크립트가 꺼진 미리보기 화면에서만 보이는 안내 -->
+  <div class="card"><b>이 화면에서는 앱이 작동하지 않아요.</b><br>Chrome이나 Safari에서 <b>sinaboro.github.io/ai-math-basics</b> 를 열어 주세요.</div>
+</main>
+<nav class="tabs">
+  <a href="#/" data-tab="home"><span>📚</span>학습</a>
+  <a href="#/words" data-tab="words"><span>📖</span>용어</a>
+  <a href="#/help" data-tab="help"><span>❓</span>사용법</a>
+</nav>
+<div class="toast" id="toast" hidden></div>
+<script src="lessons.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
